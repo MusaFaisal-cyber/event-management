@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EventHub</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f3f4f6; color: #111827; }
+    header { background: #2563eb; color: #ffffff; padding: 24px; text-align: center; }
+    .wrap { max-width: 900px; margin: 20px auto; padding: 0 15px; }
+    .card { background: #ffffff; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+    .card h3 { margin: 0 0 6px 0; }
+    input, select, button { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; font-size: 15px; }
+    button { background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; }
+    button.small { width: auto; padding: 6px 12px; margin-top: 8px; }
+    #details { display: none; border-left: 5px solid #2563eb; }
+    #msg { font-weight: bold; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EventHub</h1>
+    <p>Discover and register for events - Version v1</p>
+  </header>
+  <div class="wrap">
+    <h2>Upcoming Events</h2>
+    <div id="events">Loading events...</div>
+    <div id="details" class="card"></div>
+
+    <h2>Register for an Event</h2>
+    <div class="card">
+      <select id="event"></select>
+      <input id="name" placeholder="Your name">
+      <input id="email" placeholder="Your email">
+      <input id="tickets" type="number" min="1" value="1">
+      <button onclick="register()">Register Now</button>
+      <div id="msg"></div>
+    </div>
+
+    <h2>Recent Registrations</h2>
+    <div id="registrations">Loading registrations...</div>
+  </div>
+
+  <script>
+    function esc(s) {
+      var d = document.createElement('div');
+      d.textContent = (s === undefined || s === null) ? '' : s;
+      return d.innerHTML;
+    }
+
+    function loadEvents() {
+      fetch('/api/events')
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          var html = '';
+          var opts = '';
+          list.forEach(function (e) {
+            html += '<div class="card"><h3>' + esc(e.name) + '</h3><div>' + esc(e.date) + ' | ' + esc(e.venue) + ' | Rs. ' + e.price + '</div>' +
+                    '<button class="small" onclick="showDetails(' + e.id + ')">View Details</button></div>';
+            opts += '<option value="' + e.id + '">' + esc(e.name) + '</option>';
+          });
+          document.getElementById('events').innerHTML = html;
+          document.getElementById('event').innerHTML = opts;
+        })
+        .catch(function () {
+          document.getElementById('events').innerText = 'Event service not reachable';
+        });
+    }
+
+    function showDetails(id) {
+      fetch('/api/events/' + id)
+        .then(function (r) { return r.json(); })
+        .then(function (e) {
+          var box = document.getElementById('details');
+          box.innerHTML = '<h3>' + esc(e.name) + '</h3><p>' + esc(e.description) + '</p>' +
+                          '<p><b>Date:</b> ' + esc(e.date) + '<br><b>Venue:</b> ' + esc(e.venue) + '<br><b>Price:</b> Rs. ' + e.price + '</p>';
+          box.style.display = 'block';
+        });
+    }
+
+    function loadRegistrations() {
+      fetch('/api/registrations')
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          var html = '';
+          list.forEach(function (b) {
+            html += '<div class="card">' + esc(b.name) + ' registered ' + b.tickets + ' ticket(s) for ' + esc(b.event_name) + '</div>';
+          });
+          document.getElementById('registrations').innerHTML = html || 'No registrations yet';
+        })
+        .catch(function () {
+          document.getElementById('registrations').innerText = 'Registration service not reachable';
+        });
+    }
+
+    function register() {
+      var sel = document.getElementById('event');
+      var payload = {
+        event_id: parseInt(sel.value, 10),
+        event_name: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '',
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        tickets: document.getElementById('tickets').value
+      };
+      fetch('/api/registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          document.getElementById('msg').innerText = d.message || d.error;
+          loadRegistrations();
+        });
+    }
+
+    loadEvents();
+    loadRegistrations();
+  </script>
+</body>
+</html>
